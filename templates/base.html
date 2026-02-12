@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Study Data Transfer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; }
+        nav a { margin-right: 1rem; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+        .messages { list-style: none; padding: 0; }
+        .messages li { margin: 0.25rem 0; }
+        .container { max-width: 1000px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    {% if user.is_authenticated %}
+    <nav>
+        <a href="{% url 'entry-list' %}">Entries</a>
+        <a href="{% url 'entry-create' %}">New Entry</a>
+        <a href="{% url 'instruction-list' %}">Instructions</a>
+        <a href="{% url 'export-excel' %}">Export Excel</a>
+        <a href="{% url 'logout' %}">Logout</a>
+    </nav>
+    {% endif %}
+
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

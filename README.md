@@ -1,146 +1,137 @@
-# StudieDataTransfer – Vorschlag für eine Klinik-Webanwendung
+# Study Data Transfer
 
-Dieses Repository enthält einen **Umsetzungsvorschlag** für eine interne Webanwendung, mit der Kolleg:innen strukturiert Studiendaten erfassen können.
+Internal Django web application for pseudonymized study data entry, protected document access, and Excel export to a network folder.
 
-## Ziel
+## Features
 
-Eine webbasierte Eingabemaske soll folgende Felder erfassen:
+- Authenticated access for all study pages.
+- Study entry model with audit metadata (`created_by`, `updated_by`, timestamps).
+- Searchable list and edit restrictions (staff or original creator).
+- Protected PDF instruction repository with staff-only uploads.
+- Export endpoint generating XLSX from database truth.
+- Atomic write and advisory lock for network-folder export files.
+- Audit trail persisted in `AuditEvent` table and `LOG_DIR/audit.log`.
 
-- **PIZ**
-- **Untersuchungsdatum**
-- **Anbindung Leberambulanz** (ja/nein)
-- **Fibroscan-Befund**
-  - Lebersteifigkeits-Index
-  - CAP-Index
+## Local setup
 
-Zusätzlich sollen **Studienanleitungen als PDF** im System hinterlegt und für Mitarbeitende einfach abrufbar sein.
+1. Create and activate a virtual environment:
 
----
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-## Empfohlene Architektur (praxisnah)
+2. Install dependencies:
 
-### 1) Web-Frontend (Intranet)
+```bash
+pip install -r requirements.txt
+```
 
-- Formular mit Pflichtfeldprüfung
-- Plausibilitätschecks (z. B. Datum nicht in der Zukunft, numerische Werte für Indizes)
-- Rollenbasiert (z. B. „Dateneingabe“, „Studienleitung“, „Read-only“)
+3. Prepare instance config:
 
-### 2) Backend + Datenbank (empfohlen)
+```bash
+mkdir -p instance
+cp instance/config.template.json instance/config.json
+```
 
-- Speicherung der Eingaben zuerst in einer **Datenbank** (z. B. PostgreSQL oder MS SQL)
-- Vorteile:
-  - sichere Transaktionen
-  - Auditierbarkeit (wer hat wann geändert)
-  - robust bei gleichzeitigen Zugriffen
-  - bessere Basis für Auswertungen
+4. Adjust `instance/config.json` for your local paths.
 
-### 3) Excel-Export in Netzwerkordner
+5. Run migrations and create admin user:
 
-Wenn Excel im Netzwerkordner zwingend benötigt wird:
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+```
 
-- Geplanter Exportjob (z. B. alle 5 Minuten oder stündlich)
-- Export erzeugt/aktualisiert eine strukturierte Datei im gewünschten Netzwerkpfad
-- Bei Fehlern: Logging + Mail-Hinweis an Admin
+6. Start local server:
 
-> Warum nicht direkt in dieselbe Excel schreiben?
-> - Gleichzeitige Zugriffe sind fehleranfällig
-> - Dateisperren/Inkonsistenzen möglich
-> - Nachvollziehbarkeit und Datenqualität leiden
+```bash
+python manage.py runserver
+```
 
-### 4) PDF-Dokumentenbereich
+Open: `http://127.0.0.1:8000/login`
 
-- Upload-Funktion für Studienanleitungen (PDF)
-- Versionierung (z. B. „v1.2 vom 2026-02-01“)
-- Sichtbarkeit nur für berechtigte Rollen
-- Optional: „Gelesen am“-Bestätigung
+## Configuration (`instance/config.json`)
 
----
+The app loads config in this order:
+1. `instance/config.json`
+2. environment variables (and optional `instance/.env`)
+3. safe local defaults
 
-## Konkreter MVP-Umfang (4–6 Wochen)
+Supported keys:
 
-1. Login über Klinik-AD/SSO (oder lokale Nutzerverwaltung für Start)
-2. Formular für die 5 Kernfelder
-3. Listenansicht mit Filter (PIZ, Zeitraum)
-4. PDF-Ablage inkl. Download
-5. Regelmäßiger Excel-Export in Netzwerkordner
-6. Protokollierung (Create/Update inkl. Zeitstempel)
+- `SECRET_KEY`
+- `DEBUG`
+- `ALLOWED_HOSTS`
+- `DATA_XLSX_PATH`
+- `MEDIA_ROOT`
+- `LOG_DIR`
+- `DATABASE_URL` (optional PostgreSQL URL)
 
----
+Example:
 
-## Datenmodell (Vorschlag)
+```json
+{
+  "SECRET_KEY": "replace-with-long-random-secret",
+  "DEBUG": false,
+  "ALLOWED_HOSTS": ["study.internal.example"],
+  "DATA_XLSX_PATH": "/nfs/norasys/notebooks/raust/xxxx/study_export.xlsx",
+  "MEDIA_ROOT": "/nfs/norasys/notebooks/raust/xxxx/media",
+  "LOG_DIR": "/nfs/norasys/notebooks/raust/xxxx/logs",
+  "DATABASE_URL": ""
+}
+```
 
-### Tabelle `study_entries`
+## Server run example (gunicorn)
 
-- `id` (UUID)
-- `piz` (String, indexiert)
-- `exam_date` (Date)
-- `liver_clinic_connected` (Boolean)
-- `fibroscan_liver_stiffness_index` (Decimal)
-- `fibroscan_cap_index` (Decimal)
-- `created_at`, `created_by`
-- `updated_at`, `updated_by`
+```bash
+gunicorn studydata.wsgi:application --bind 0.0.0.0:8000 --workers 3
+```
 
-### Tabelle `study_documents`
+### Example systemd unit
 
-- `id` (UUID)
-- `title`
-- `version`
-- `file_path` oder Blob-Referenz
-- `uploaded_at`, `uploaded_by`
+Save as `studydata.service` (paths must match your deployment):
 
----
+```ini
+[Unit]
+Description=Study Data Transfer Django app
+After=network.target
 
-## Alternativen zur Excel-Zielablage
+[Service]
+Type=simple
+WorkingDirectory=/nfs/norasys/notebooks/raust/xxxx
+ExecStart=/nfs/norasys/notebooks/raust/xxxx/.venv/bin/gunicorn studydata.wsgi:application --bind 0.0.0.0:8000 --workers 3
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
 
-### A) Primär Datenbank + Excel nur als Export (empfohlen)
+[Install]
+WantedBy=multi-user.target
+```
 
-- Beste Datenqualität und Stabilität
-- Excel bleibt für bestehende Prozesse verfügbar
+## Network share and locking notes
 
-### B) Direktes Schreiben in SharePoint-Liste statt Excel-Datei
+- `DATA_XLSX_PATH` should point to the final network file location.
+- Export writes to a temp file in the same directory, then atomically renames.
+- Advisory file lock (`.lock`) blocks concurrent exports.
+- If lock acquisition fails, users get a friendly error and no file corruption occurs.
 
-- Bessere Parallelität als klassische XLSX-Datei
-- Gute Integration mit Microsoft 365
+## Backup and retention recommendations
 
-### C) REDCap als Studienplattform
+- Back up SQLite/PostgreSQL database regularly.
+- Back up `MEDIA_ROOT/instructions` and `LOG_DIR`.
+- Keep periodic snapshots of exported XLSX if required by policy.
+- Align retention with institutional and study governance requirements.
 
-- Speziell für klinische Studien
-- Audit-Trail, Rechtekonzept, validierte Datenerfassung
-- Excel-Export standardmäßig möglich
+## Deployment updater keep-files
 
-### D) EDC-System (z. B. Castor, secuTrial, OpenClinica)
+Ensure the updater preserves these files/directories:
 
-- Höherer Implementierungsaufwand
-- Dafür regulatorisch oft besser aufgestellt
+- `instance/config.json`
+- `instance/.env` (optional)
+- `db.sqlite3` (if using SQLite in production)
+- `media/`
+- `logs/`
 
----
+## Privacy
 
-## Sicherheits- und Compliance-Hinweise
-
-- Hosting im Kliniknetz / zertifiziertem Rechenzentrum
-- Transportverschlüsselung (TLS)
-- Rollen- und Rechtekonzept (Least Privilege)
-- Audit-Log unveränderbar speichern
-- Aufbewahrungsfristen mit Datenschutzbeauftragten abstimmen
-- Falls personenbezogene Daten: DSFA und TOMs prüfen
-
----
-
-## Empfohlener Tech-Stack (ein möglicher Weg)
-
-- **Frontend:** React + TypeScript
-- **Backend:** FastAPI (Python) oder ASP.NET Core
-- **DB:** PostgreSQL / MS SQL
-- **Dateiablage PDFs:** Netzwerkshare oder Objekt-Storage (intern)
-- **Export:** Geplanter Worker (Cron/Task Scheduler)
-
----
-
-## Nächste Schritte
-
-1. Kurzer Workshop (30–45 min) mit Studienleitung + IT
-2. Pflichtfelder, Rollen und Exportformat final abstimmen
-3. MVP als klickbaren Prototyp + Pilotstation
-4. Nach 2–4 Wochen Feedbackrunde und Ausbau
-
-Wenn gewünscht, kann im nächsten Schritt eine **konkrete Implementierungsskizze** erstellt werden (API-Endpunkte, Datenbankmigrationen, UI-Mockup, Deploymentplan).
+Only pseudonymized patient identifiers (PIZ) are stored. Do not enter direct identifiers.

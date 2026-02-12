@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Study instructions</h1>
+{% if user.is_staff %}
+<p><a href="{% url 'instruction-upload' %}">Upload PDF</a></p>
+{% endif %}
+<table>
+    <tr>
+        <th>Title</th>
+        <th>Uploaded at</th>
+        <th>Uploaded by</th>
+        <th>File</th>
+    </tr>
+    {% for instruction in instructions %}
+    <tr>
+        <td>{{ instruction.title }}</td>
+        <td>{{ instruction.uploaded_at }}</td>
+        <td>{{ instruction.uploaded_by }}</td>
+        <td><a href="{% url 'instruction-download' instruction.id %}">Download</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">No instructions uploaded.</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}
