@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -115,4 +117,5 @@ def instruction_download_view(request, pk):
     instruction = get_object_or_404(StudyInstruction, pk=pk)
     if not instruction.pdf:
         raise Http404("File missing")
-    return FileResponse(instruction.pdf.open("rb"), as_attachment=True, filename=instruction.pdf.name.split("/")[-1])
+    safe_filename = Path(instruction.pdf.name).name
+    return FileResponse(instruction.pdf.open("rb"), as_attachment=True, filename=safe_filename)
