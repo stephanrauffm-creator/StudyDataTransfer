@@ -14,22 +14,11 @@ Internal Django web application for pseudonymized study data entry, protected do
 
 ## Local setup
 
-Windows and Linux are both supported for local development. The Excel export lock is cross-platform and does not require `fcntl` on Windows.
-
 1. Create and activate a virtual environment:
-
-Linux/macOS:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
 ```
 
 2. Install dependencies:
@@ -123,7 +112,7 @@ WantedBy=multi-user.target
 
 - `DATA_XLSX_PATH` should point to the final network file location.
 - Export writes to a temp file in the same directory, then atomically renames.
-- Advisory file lock (`.lock`) blocks concurrent exports (fcntl on Unix, msvcrt on Windows).
+- Advisory file lock (`.lock`) blocks concurrent exports.
 - If lock acquisition fails, users get a friendly error and no file corruption occurs.
 
 ## Backup and retention recommendations

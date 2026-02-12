@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import contextlib
+import fcntl
 import logging
 import os
 import tempfile
@@ -19,57 +19,6 @@ class ExportLockError(Exception):
     pass
 
 
-@contextlib.contextmanager
-def advisory_export_lock(lock_path: str):
-    lock_file_path = Path(lock_path)
-    lock_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    lock_file = lock_file_path.open("a+b")
-    lock_acquired = False
-    platform_lock = None
-
-    try:
-        try:
-            import fcntl  # type: ignore
-
-            platform_lock = "fcntl"
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            lock_acquired = True
-        except ImportError:
-            import msvcrt  # type: ignore
-
-            platform_lock = "msvcrt"
-            lock_file.seek(0, os.SEEK_END)
-            if lock_file.tell() == 0:
-                lock_file.write(b"0")
-                lock_file.flush()
-            lock_file.seek(0)
-            try:
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
-                lock_acquired = True
-            except OSError as exc:
-                raise ExportLockError("Export in progress, try again later") from exc
-        yield
-    except ExportLockError:
-        raise
-    except OSError as exc:
-        if not lock_acquired:
-            raise ExportLockError("Export in progress, try again later") from exc
-        raise
-    finally:
-        if lock_acquired:
-            if platform_lock == "fcntl":
-                import fcntl  # type: ignore
-
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-            elif platform_lock == "msvcrt":
-                import msvcrt  # type: ignore
-
-                lock_file.seek(0)
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-        lock_file.close()
-
-
 def write_audit_event(action: str, username: str, details: str = "") -> None:
     AuditEvent.objects.create(action=action, username=username, details=details)
     audit_logger.info("action=%s user=%s details=%s", action, username, details)
@@ -79,8 +28,13 @@ def export_entries_to_excel() -> str:
     target = Path(settings.DATA_XLSX_PATH)
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    lock_path = f"{target}.lock"
-    with advisory_export_lock(lock_path):
+    lock_path = target.with_suffix(target.suffix + ".lock")
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ExportLockError("Another export is in progress. Please try again.") from exc
+
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "StudyData"

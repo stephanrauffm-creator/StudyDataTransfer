@@ -71,10 +71,3 @@ class StudyEntryTests(TestCase):
             response["Content-Type"],
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-
-
-class ServicesImportTests(TestCase):
-    def test_services_module_imports(self):
-        from . import services
-
-        self.assertTrue(hasattr(services, "advisory_export_lock"))
