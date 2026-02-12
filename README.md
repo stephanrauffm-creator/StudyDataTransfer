@@ -12,7 +12,7 @@ Internal Django web application for pseudonymized study data entry, protected do
 - Atomic write and advisory lock for network-folder export files.
 - Audit trail persisted in `AuditEvent` table and `LOG_DIR/audit.log`.
 
-## Local setup
+## Local setup (Linux/macOS)
 
 1. Create and activate a virtual environment:
 
@@ -50,6 +50,79 @@ python manage.py runserver
 ```
 
 Open: `http://127.0.0.1:8000/login`
+
+## Windows test guide (Python 3.12)
+
+Use these commands in **PowerShell** from the repository root.
+
+1. Confirm Python 3.12 is available:
+
+```powershell
+py -3.12 --version
+```
+
+2. Create and activate a virtual environment:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+3. Install dependencies and verify Python version inside the venv:
+
+```powershell
+python --version
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+4. Create local config from template:
+
+```powershell
+Copy-Item .\instance\config.template.json .\instance\config.json
+```
+
+5. Edit `instance\config.json` for Windows paths (example):
+
+```json
+{
+  "SECRET_KEY": "replace-with-long-random-secret",
+  "DEBUG": true,
+  "ALLOWED_HOSTS": ["127.0.0.1", "localhost"],
+  "DATA_XLSX_PATH": "C:/StudyDataTransfer/instance/study_export.xlsx",
+  "MEDIA_ROOT": "C:/StudyDataTransfer/media",
+  "LOG_DIR": "C:/StudyDataTransfer/logs",
+  "DATABASE_URL": ""
+}
+```
+
+6. Run database setup and tests:
+
+```powershell
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py test
+python -m compileall .
+```
+
+7. Start the app:
+
+```powershell
+python manage.py runserver
+```
+
+Open: `http://127.0.0.1:8000/login`
+
+### Common Windows terminal notes
+
+- If PowerShell blocks activation scripts, run once as current user:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+- If `py` is not found, install Python 3.12 from python.org and enable "Add python.exe to PATH".
+- Use forward slashes (`C:/path/to/file`) in JSON config to avoid escaping issues.
 
 ## Configuration (`instance/config.json`)
 
