@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Study entries</h1>
+<form method="get">
+    <label>PIZ <input type="text" name="piz" value="{{ request.GET.piz }}"></label>
+    <label>From <input type="date" name="start_date" value="{{ request.GET.start_date }}"></label>
+    <label>To <input type="date" name="end_date" value="{{ request.GET.end_date }}"></label>
+    <button type="submit">Filter</button>
+</form>
+<table>
+    <tr>
+        <th>PIZ</th>
+        <th>Exam date</th>
+        <th>Liver ambulance link</th>
+        <th>LSM kPa</th>
+        <th>CAP dBm</th>
+        <th>Created by</th>
+        <th>Updated by</th>
+        <th>Actions</th>
+    </tr>
+    {% for entry in entries %}
+    <tr>
+        <td>{{ entry.piz }}</td>
+        <td>{{ entry.examination_date }}</td>
+        <td>{% if entry.liver_ambulance_link %}yes{% else %}no{% endif %}</td>
+        <td>{{ entry.fibroscan_lsm_kpa }}</td>
+        <td>{{ entry.fibroscan_cap_dbm }}</td>
+        <td>{{ entry.created_by }}</td>
+        <td>{{ entry.updated_by }}</td>
+        <td><a href="{% url 'entry-edit' entry.id %}">Edit</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8">No entries yet.</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}

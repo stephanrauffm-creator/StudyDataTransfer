@@ -1,0 +1,9 @@
+{
+  "SECRET_KEY": "replace-with-long-random-secret",
+  "DEBUG": true,
+  "ALLOWED_HOSTS": ["127.0.0.1", "localhost"],
+  "DATA_XLSX_PATH": "/nfs/norasys/notebooks/raust/xxxx/study_export.xlsx",
+  "MEDIA_ROOT": "/nfs/norasys/notebooks/raust/xxxx/media",
+  "LOG_DIR": "/nfs/norasys/notebooks/raust/xxxx/logs",
+  "DATABASE_URL": ""
+}
